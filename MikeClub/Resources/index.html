@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🚴 每刻动感单车排座系统</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --panel-bg: #2c2c2c;
+            --text-main: #ffffff;
+            --text-sub: #aaaaaa;
+            --seat-empty: #333333;
+            --seat-empty-border: #666666;
+            --seat-occupied: #f39c12; 
+            --seat-coach: #d35400;
+            --seat-conflict: #e74c3c;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            padding-bottom: 40px; 
+            box-sizing: border-box;
+            position: relative; 
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 20px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            color: var(--seat-occupied);
+            padding-right: 90px; 
+            padding-left: 90px;
+        }
+
+        /* 🌟 优化：右上角数据统计面板样式 */
+        .stats-panel {
+            position: absolute;
+            top: 12px;
+            right: 15px;
+            background-color: var(--panel-bg);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-sub);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            line-height: 1.8;
+            z-index: 10;
+            min-width: 90px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stats-panel .highlight {
+            color: var(--seat-occupied);
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .stats-panel .alert {
+            color: var(--seat-conflict);
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .stats-panel .good {
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        #alertBox {
+            display: none;
+            background-color: rgba(231, 76, 60, 0.1);
+            border: 1px solid var(--seat-conflict);
+            color: var(--seat-conflict);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        /* 座位图 Grid 布局 */
+        .seat-map-container {
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 15px 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            overflow-x: auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .seat {
+            background-color: var(--seat-empty);
+            border: 1px solid var(--seat-empty-border);
+            border-radius: 6px;
+            text-align: center;
+            padding: 8px 2px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 40px;
+            word-break: break-all;
+        }
+
+        .seat .num {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 2px;
+            opacity: 0.8;
+        }
+
+        .seat .name {
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        .seat.coach {
+            grid-column: span 2; 
+            background-color: var(--seat-coach);
+            border-color: var(--seat-coach);
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .seat.occupied {
+            background-color: var(--seat-occupied);
+            border-color: #d68910;
+            color: #fff;
+        }
+
+        .seat.conflict {
+            background-color: var(--seat-conflict);
+            border-color: #c0392b;
+            color: #fff;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 1; }
+            to { opacity: 0.7; }
+        }
+
+        .seat.hidden {
+            visibility: hidden;
+        }
+        
+        .row-label {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-bottom: 5px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        /* 底部输入与操作区 */
+        .input-section {
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 20px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            background-color: #1f1f1f;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: none;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--seat-occupied);
+        }
+
+        button {
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:active {
+            transform: translateY(3px);
+            box-shadow: none !important;
+        }
+
+        .btn-clear {
+            background-color: #e74c3c;
+            box-shadow: 0 4px 0 #c0392b;
+        }
+
+        .btn-generate {
+            background-color: #2ecc71;
+            box-shadow: 0 4px 0 #27ae60;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="stats-panel">
+        <div class="stat-row"><span>未选座:</span> <span id="statNoSeat" class="alert">0</span></div>
+        <div class="stat-row"><span>重复位:</span> <span id="statConflict" class="alert">0</span></div>
+        <div class="stat-row"><span>图上空余:</span> <span id="statEmpty" class="highlight">30</span></div>
+        <hr style="border: 0; border-top: 1px dashed #555; margin: 4px 0;">
+        <div class="stat-row"><span>实际剩余:</span> <span id="statActual" class="good">30</span></div>
+    </div>
+
+    <h2>🚴 每刻排座系统</h2>
+
+    <div id="alertBox"></div>
+
+    <div class="seat-map-container">
+        <div class="grid" id="row0"></div>
+        <div class="row-label">第一排</div>
+        <div class="grid" id="row1"></div>
+        <div class="row-label">第二排</div>
+        <div class="grid" id="row2"></div>
+        <div class="row-label">第三排</div>
+        <div class="grid" id="row3"></div>
+        <div class="row-label">第四排</div>
+        <div class="grid" id="row4"></div>
+        <div class="row-label">第五排</div>
+        <div class="grid" id="row5"></div>
+    </div>
+
+    <div class="input-section">
+        <textarea id="inputText" placeholder="请在此长按粘贴微信接龙文本..."></textarea>
+        
+        <button class="btn-clear" onclick="clearText()">🗑️ 清空数据</button>
+        <button class="btn-generate" onclick="generateMap()">🚀 生成座位表</button>
+    </div>
+
+    <script>
+        // 单车总座位数固定为 30
+        const TOTAL_PHYSICAL_SEATS = 30;
+
+        const layout = {
+            row0: [4, 3, 'coach', 2, 1], 
+            row1: [5, 6, 7, 8, 9, 10],
+            row2: [16, 15, 14, 13, 12, 11], 
+            row3: [17, 18, 19, 20, 21, 22],
+            row4: [28, 27, 26, 25, 24, 23], 
+            row5: [29, 30, 'empty', 'empty', 'empty', 'empty'] 
+        };
+
+        window.onload = function() {
+            const savedText = localStorage.getItem('lastJielong');
+            if(savedText) {
+                document.getElementById('inputText').value = savedText;
+                generateMap();
+            } else {
+                renderEmptyMap();
+            }
+        };
+
+        document.getElementById('inputText').addEventListener('paste', function() {
+            setTimeout(generateMap, 100);
+        });
+
+        function parseText(text) {
+            const lines = text.trim().split('\n');
+            const seatData = {};
+            const noSeatUsers = [];
+            let coachName = "教 练"; 
+            const ignore = ["#接龙", "今晚", "单车", "预约", "开课", "满", "！", "!"];
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || ignore.some(k => line.includes(k))) return;
+
+                const coachMatch = line.match(/^\d{1,2}[:：]\d{2}(?:\s+(.+))?$/);
+                if (coachMatch) {
+                    if (coachMatch[1]) coachName = coachMatch[1].trim();
+                    return; 
+                }
+
+                const match = line.match(/(?:^\d+\.\s*)?(.+?)\s*(\d+)\s*号?$/);
+                
+                if (match) {
+                    let name = match[1].replace(/[,，。\.]$/, '').trim();
+                    let num = parseInt(match[2]);
+                    if (!seatData[num]) seatData[num] = [];
+                    seatData[num].push(name);
+                } else {
+                    let cleanName = line.replace(/^\d+\.\s*/, '').trim();
+                    cleanName = cleanName.replace(/[,，。\.]$/, '');
+                    cleanName = cleanName.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+                    
+                    if (cleanName.length >= 1) noSeatUsers.push(cleanName);
+                }
+            });
+            return { seatData, noSeatUsers, coachName };
+        }
+
+        function renderEmptyMap() {
+            renderMapData({}, [], "教 练");
+        }
+
+        function generateMap() {
+            const text = document.getElementById('inputText').value;
+            localStorage.setItem('lastJielong', text); 
+            const { seatData, noSeatUsers, coachName } = parseText(text);
+            renderMapData(seatData, noSeatUsers, coachName);
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderMapData(seatData, noSeatUsers, coachName) {
+            const alertBox = document.getElementById('alertBox');
+            
+            // 数据统计变量
+            let emptySeatsCount = 0;   // 图上空的座位数
+            let conflictSeatsCount = 0; // 发生冲突的座位数
+            let totalSeatedPeople = 0;  // 已经入座的总人数
+            
+            alertBox.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+            alertBox.style.borderColor = '#e74c3c';
+            alertBox.style.color = '#e74c3c';
+
+            if (noSeatUsers.length > 0) {
+                alertBox.style.display = 'block';
+                alertBox.innerHTML = '⚠️ <b>以下人员未选择座位号或有特殊留言：</b><br>• ' + noSeatUsers.join('<br>• ');
+            } else {
+                alertBox.style.display = 'none';
+            }
+
+            Object.keys(layout).forEach(rowId => {
+                const container = document.getElementById(rowId);
+                container.innerHTML = ''; 
+
+                layout[rowId].forEach(item => {
+                    const div = document.createElement('div');
+                    
+                    if (item === 'coach') {
+                        div.className = 'seat coach';
+                        div.innerHTML = coachName; 
+                    } else if (item === 'empty') {
+                        div.className = 'seat hidden';
+                    } else {
+                        const num = item;
+                        const names = seatData[num] || [];
+                        
+                        let className = 'seat';
+                        let content = `<div class="num">${num}</div>`;
+                        
+                        if (names.length === 0) {
+                            content += `<div class="name" style="color:#666">(空)</div>`;
+                            emptySeatsCount++; // 图上空位+1
+                        } else if (names.length === 1) {
+                            className += ' occupied';
+                            content += `<div class="name">${names[0]}</div>`;
+                            totalSeatedPeople += 1; // 入座人数+1
+                        } else {
+                            className += ' conflict';
+                            content += `<div class="name">${names.join('/')}<br>⚠️</div>`;
+                            conflictSeatsCount++; // 冲突座位+1
+                            totalSeatedPeople += names.length; // 入座人数加上该座位的重叠人数
+                        }
+                        
+                        div.className = className;
+                        div.innerHTML = content;
+                    }
+                    container.appendChild(div);
+                });
+            });
+
+            // 🌟 核心计算逻辑：实际剩余 = 30 - 已经入座的人 - 未选座的人
+            let totalPeopleParsed = totalSeatedPeople + noSeatUsers.length;
+            let actualRemaining = TOTAL_PHYSICAL_SEATS - totalPeopleParsed;
+
+            // 更新面板数据
+            document.getElementById('statNoSeat').innerText = noSeatUsers.length;
+            document.getElementById('statConflict').innerText = conflictSeatsCount;
+            document.getElementById('statEmpty').innerText = emptySeatsCount;
+            
+            const statActualEl = document.getElementById('statActual');
+            statActualEl.innerText = actualRemaining;
+            
+            // 如果超售（实际剩余小于0），数字变红警告，否则显示绿色
+            if (actualRemaining < 0) {
+                statActualEl.className = 'alert';
+            } else {
+                statActualEl.className = 'good';
+            }
+        }
+
+        function clearText() {
+            document.getElementById('inputText').value = '';
+            localStorage.removeItem('lastJielong'); 
+            renderEmptyMap(); 
+            document.getElementById('alertBox').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

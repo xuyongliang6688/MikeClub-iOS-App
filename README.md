@@ -28,3 +28,9 @@ xcodebuild -exportArchive -archivePath build/MikeClub.xcarchive -exportOptionsPl
 - `MikeClub-simulator-app.zip`：iOS 模拟器 App，可用于验证构建结果。
 
 如果需要直接导出可安装真机的 `.ipa`，需要在 GitHub 仓库 secrets 中配置 Apple 证书、provisioning profile 和导出参数。
+
+Actions 会在构建前运行 `Scripts/generate_app_icons.swift` 生成 App Icon PNG。克隆到本地后，如果缺少图标文件，也可以在仓库根目录手动运行：
+
+```sh
+swift Scripts/generate_app_icons.swift
+```
